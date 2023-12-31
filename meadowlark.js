@@ -1,5 +1,8 @@
 const express = require('express')
 const expressHandlebars = require('express-handlebars')
+const cookieParser = require('cookie-parser')
+const session = require('express-session')
+const catNames = require('cat-names')
 const handlers = require('./lib/handlers')
 const app = express()
 const port = process.env.PORT || 3000
