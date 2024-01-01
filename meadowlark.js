@@ -14,6 +14,8 @@ const port = process.env.PORT || 3000
 // configure Handlebars view engine
 const handlebars = expressHandlebars.create({ defaultLayout: 'main' });
 app.engine('handlebars', handlebars.engine);
+// 上面两行也可以这样写
+// app.engine('handlebars', expressHandlebars({ defaultLayout: 'main' }))
 app.set('view engine', 'handlebars');
 app.disable('x-powered-by')
 
@@ -59,8 +61,18 @@ app.get('/greeting', (req, res) => {
 // the following layout doesn't have a layout file, so
 // views/no-layout.handlebars must include all necessary HTML
 app.get('/no-layout', (req, res) =>
-  res.render('no-layout', { layout: null })
+    res.render('no-layout', { layout: null })
 )
+
+app.get('/custom-layout', (req, res) =>
+    res.render('custom-layout', { layout: 'custom' })
+)
+
+app.get('/text', (req, res) => {
+    res.type('text/plain')
+    res.send('this is a test')
+})
+    
 
 
 app.get('/set-random-userid', (req, res) => {
@@ -75,15 +87,30 @@ app.get('/set-random-username', (req, res) => {
 })
   
 
+// see the views/error.hbs file for the contents of this view
+app.get('/bad-bad-not-good', (req, res) => {
+    // we're going to simulate something bad happening in your code....
+    throw new Error("that didn't go well!")
+})
+
 // custom 404 page
-app.use(handlers.notFound)
+// app.use(handlers.notFound)
+app.use((req, res) =>
+    res.status(404).render('404')
+)
+
 // custom 500 page
 // app.use(handlers.serverError)
-app.get('/error', (req, res) => res.status(500).render('error'))
+//app.get('/error', (req, res) => res.status(500).render('error'))
+app.use((err, req, res, next) => {
+    console.error('** SERVER ERROR: ' + err.message)
+    res.status(500).render('08-error', { message: "you shouldn't have clicked that!" })
+})
 
 
 // 当应用接收到任何未匹配到其他路由的 GET 请求时（使用通配符 *），它将发送一个包含链接的响应，提示用户查看他们的问候页面。
-app.get('*', (req, res) => res.send('Check out our <a href="/greeting">greeting</a> page!'))
+// app.get('*', (req, res) => res.send('Check out our <a href="/greeting">greeting</a> page!'))
+app.get('*', (req, res) => res.render('08-click-here'))
 
 
 // 在 Node.js 中，require.main 是一个全局变量，用于标识当前模块是通过直接运行还是通过 require 语句引入的。
