@@ -6,6 +6,8 @@ const cookieParser = require('cookie-parser')
 const session = require('express-session')
 // npm install cat-names
 const catNames = require('cat-names')
+// npm install body-parser
+const bodyParser = require('body-parser')
 const handlers = require('./lib/handlers')
 const app = express()
 const port = process.env.PORT || 3000
@@ -35,6 +37,13 @@ app.use(cookieParser())
 // secret：这是一个用于签名会话 ID cookie 的字符串。
 // secret: 'keyboard cat'：为签名会话ID cookie提供一个秘密密钥，以提高安全性。
 app.use(session({ resave: false, saveUninitialized: false, secret: 'keyboard cat' }))
+
+// extended: false 是一个配置选项，用于指定解析 URL 编码的请求体时，
+// 使用 Node.js 内置的 querystring 库来解析。如果将 extended 设置为 false，则使用 querystring 解析
+// 如果设置为 true，则使用第三方库 qs 解析。
+// 具体而言，extended: false 会将 URL 编码的数据解析为键值对形式，而 extended: true 支持更丰富的数据解析，包括嵌套对象等。
+app.use(bodyParser.urlencoded({extend: false}))
+app.use(bodyParser.json())
 
 
 app.get('/', handlers.home)
@@ -93,6 +102,36 @@ app.get('/bad-bad-not-good', (req, res) => {
     throw new Error("that didn't go well!")
 })
 
+app.get('/thank-you', (req, res) => res.render('11-thank-you'))
+app.get('/contact-error', (req, res) => res.render('11-contact-error'))
+
+
+app.post('/process-contact', (req, res) => {
+    try {
+        // here's where we would try to save contact to database or other
+        // persistence mechanism...for now, we'll just simulate an error
+        // 检查请求体 (req.body) 中名为 simulateError 的属性。处理请求时模拟错误条件的机制。
+        if(req.body.simulateError) throw new Error("error saving contact!")
+        console.log(`contact from ${req.body.name} <${req.body.email}>`)
+        res.format({
+            'text/html': () => res.redirect(303, '/thank-you'),
+            'application/json': () => res.json({ success: true }),
+        })
+    } catch (err) {
+        // here's where we would handle any persistence failures
+        console.error(`error processing contact from ${req.body.name} ` + `<${req.body.email}>`)
+        res.format({
+            'text/html': () => res.redirect(303, '/contact-error'),
+            'application/json': () => res.status(500).json({
+            error: 'error saving contact information' }),
+        })
+    }
+
+    console.log(`received contact from ${req.body.name} <${req.body.email}>`)
+    res.redirect(303, '10-thank-you')
+})
+
+
 // custom 404 page
 // app.use(handlers.notFound)
 app.use((req, res) =>
@@ -105,6 +144,42 @@ app.use((req, res) =>
 app.use((err, req, res, next) => {
     console.error('** SERVER ERROR: ' + err.message)
     res.status(500).render('08-error', { message: "you shouldn't have clicked that!" })
+})
+
+
+const tours = [
+    { id: 0, name: 'Hood River', price: 99.99 },
+    { id: 1, name: 'Oregon Coast', price: 149.95 },
+]
+app.get('/api/tours', (req, res) => {
+    const toursXml = '<?xml version="1.0"?><tours>' +
+        tours.map(p =>
+        `<tour price="${p.price}" id="${p.id}">${p.name}</tour>`
+        ).join('') + '</tours>'
+    const toursText = tours.map(p => `${p.id}: ${p.name} (${p.price})`).join('\n')
+    res.format({
+        'application/json': () => res.json(tours),
+        'application/xml': () => res.type('application/xml').send(toursXml),
+        'text/xml': () => res.type('text/xml').send(toursXml),
+        'text/plain': () => res.type('text/plain').send(toursXml),
+    })
+})
+
+app.put('/api/tour/:id', (req, res) => {
+    // 在一个数组（假设为tours）中查找具有特定ID的元素。
+    const p = tours.find(p => p.id === parseInt(req.params.id))
+    if(!p) return res.status(410).json({ error: 'No such tour exists' })
+    if(req.body.name) p.name = req.body.name
+    if(req.body.price) p.price = req.body.price
+    res.json({ success: true })
+})
+
+// splice 用于修改数组。第二个参数 1 是要删除的元素个数。
+app.delete('/api/tour/:id', (req, res) => {
+    const idx = tours.findIndex(tour => tour.id === parseInt(req.params.id))
+    if(idx < 0) return res.json({ error: 'No such tour exists.' })
+    tours.splice(idx, 1)
+    res.json({ success: true })
 })
 
 
