@@ -1,5 +1,4 @@
-const express = require('express')
-const expressHandlebars = require('express-handlebars')
+
 // npm install cookie-parser
 const cookieParser = require('cookie-parser')
 // npm install express-session
@@ -8,20 +7,6 @@ const session = require('express-session')
 const catNames = require('cat-names')
 // npm install body-parser
 const bodyParser = require('body-parser')
-const handlers = require('./lib/handlers')
-const app = express()
-const port = process.env.PORT || 3000
-
-
-// configure Handlebars view engine
-const handlebars = expressHandlebars.create({ defaultLayout: 'main' });
-app.engine('handlebars', handlebars.engine);
-// 上面两行也可以这样写
-// app.engine('handlebars', expressHandlebars({ defaultLayout: 'main' }))
-app.set('view engine', 'handlebars');
-app.disable('x-powered-by')
-
-app.use(express.static(__dirname + '/public'))
 
 // the following is needed for cookie support
 // 设置了用于解析 cookie 的中间件。cookieParser 中间件解析传入的 cookie 并将其在 req.cookies 对象中提供。
@@ -44,10 +29,6 @@ app.use(session({ resave: false, saveUninitialized: false, secret: 'keyboard cat
 // 具体而言，extended: false 会将 URL 编码的数据解析为键值对形式，而 extended: true 支持更丰富的数据解析，包括嵌套对象等。
 app.use(bodyParser.urlencoded({extend: false}))
 app.use(bodyParser.json())
-
-
-app.get('/', handlers.home)
-app.get('/about', handlers.about)
 
 app.get('/headers', (req, res) => {
     res.type('text/plain')
@@ -132,21 +113,6 @@ app.post('/process-contact', (req, res) => {
 })
 
 
-// custom 404 page
-// app.use(handlers.notFound)
-app.use((req, res) =>
-    res.status(404).render('404')
-)
-
-// custom 500 page
-// app.use(handlers.serverError)
-//app.get('/error', (req, res) => res.status(500).render('error'))
-app.use((err, req, res, next) => {
-    console.error('** SERVER ERROR: ' + err.message)
-    res.status(500).render('08-error', { message: "you shouldn't have clicked that!" })
-})
-
-
 const tours = [
     { id: 0, name: 'Hood River', price: 99.99 },
     { id: 1, name: 'Oregon Coast', price: 149.95 },
@@ -186,14 +152,3 @@ app.delete('/api/tour/:id', (req, res) => {
 // 当应用接收到任何未匹配到其他路由的 GET 请求时（使用通配符 *），它将发送一个包含链接的响应，提示用户查看他们的问候页面。
 // app.get('*', (req, res) => res.send('Check out our <a href="/greeting">greeting</a> page!'))
 app.get('*', (req, res) => res.render('08-click-here'))
-
-
-// 在 Node.js 中，require.main 是一个全局变量，用于标识当前模块是通过直接运行还是通过 require 语句引入的。
-// 当一个文件被直接运行时，require.main 被设置为指向该文件的 module 对象。如果文件是通过 require 引入的，require.main 就会是 undefined。
-if(require.main === module) {
-    app.listen(port, () => {
-        console.log(`Express started on http://localhost:${port}; press Ctrl-C to terminate.`)
-    })
-} else {
-    module.exports = app
-}
