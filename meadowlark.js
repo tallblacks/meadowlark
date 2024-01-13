@@ -1,5 +1,4 @@
-const express = require('express')
-const app = express()
+/*
 // npm install cookie-parser
 const cookieParser = require('cookie-parser')
 // npm install express-session
@@ -153,3 +152,4 @@ app.delete('/api/tour/:id', (req, res) => {
 // 当应用接收到任何未匹配到其他路由的 GET 请求时（使用通配符 *），它将发送一个包含链接的响应，提示用户查看他们的问候页面。
 // app.get('*', (req, res) => res.send('Check out our <a href="/greeting">greeting</a> page!'))
 app.get('*', (req, res) => res.render('08-click-here'))
+*/
