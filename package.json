@@ -5,7 +5,7 @@
   "main": "Express-Handlebars.js",
   "scripts": {
     "test": "jest",
-    "lint": "eslint meadowlark.js lib"
+    "lint": "eslint Express-Handlebars.js lib"
   },
   "author": "",
   "license": "ISC",
