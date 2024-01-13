@@ -2,10 +2,10 @@
   "name": "site",
   "version": "1.0.0",
   "description": "",
-  "main": "Express-Handlebars.js",
+  "main": "Form-Handling.js",
   "scripts": {
     "test": "jest",
-    "lint": "eslint Express-Handlebars.js lib"
+    "lint": "eslint Form-Handling.js lib"
   },
   "author": "",
   "license": "ISC",
