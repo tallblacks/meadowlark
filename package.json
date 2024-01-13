@@ -2,7 +2,7 @@
   "name": "site",
   "version": "1.0.0",
   "description": "",
-  "main": "meadowlark.js",
+  "main": "Express-Handlebars.js",
   "scripts": {
     "test": "jest",
     "lint": "eslint meadowlark.js lib"
