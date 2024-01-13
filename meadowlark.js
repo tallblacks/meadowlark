@@ -1,4 +1,5 @@
-
+const express = require('express')
+const app = express()
 // npm install cookie-parser
 const cookieParser = require('cookie-parser')
 // npm install express-session
