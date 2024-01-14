@@ -6,8 +6,27 @@ const app = express()
 // 禁用 HTTP 头中的 "X-Powered-By" 字段。这个字段通常用于标识服务器所使用的技术。
 // 也可以使用 app.set('x-powered-by', false) 达到相同的效果。
 app.disable('x-powered-by')
-
 app.use(express.static(__dirname + '/public'))
+
+
+/* ==== ==== Cookies ==== ==== */
+const cookieParser = require('cookie-parser')   // npm install cookie-parser
+const credentials = require('./credentials')
+app.use(cookieParser(credentials.cookieSecret))
+
+
+/* ==== ==== Sessions ==== ==== */
+const expressSession = require('express-session')     // npm install express-session
+// make sure you've linked in cookie middleware before session middleware!。
+// resave：如果设置为 true，它会强制将会话保存回会话存储，即使在请求期间未修改会话。false：如果在请求期间未修改会话，则不保存会话。
+// saveUninitialized：如果设置为 true，它会强制将未初始化的会话保存到存储。false：不保存未初始化的会话，节省存储空间。
+// secret：这是一个用于签名会话 ID cookie 的字符串。
+app.use(expressSession({ resave: false, saveUninitialized: false, secret: credentials.cookieSecret }))
+
+
+/* ==== ==== Flash Message ==== ==== */
+const flashMiddleware = require('./lib/middleware/flash')
+app.use(flashMiddleware)
 
 
 /* ==== ==== Handlebars ==== ==== */
@@ -60,8 +79,10 @@ app.get('/newsletter-signup/thank-you', handlers.newsletterSignupThankYou)
 // handlers for fetch/JSON form submission
 app.get('/newsletter', handlers.newsletter)
 app.post('/api/newsletter-signup', handlers.api.newsletterSignup)
+app.get('/newsletter-archive', handlers.newsletterArchive)
 
-// vacation photo contest
+
+/* ==== ==== Vacation Photo ==== ==== */
 app.get('/contest/vacation-photo', handlers.vacationPhotoContest)
 app.get('/contest/vacation-photo-ajax', handlers.vacationPhotoContestAjax)
 app.post('/contest/vacation-photo/:year/:month', (req, res) => {
@@ -85,6 +106,11 @@ app.post('/api/vacation-photo-contest/:year/:month', (req, res) => {
 app.get('/', handlers.home)
 app.get('/about', handlers.about)
 app.get('/section-test', handlers.sectionTest)
+app.get('/headers', (req, res) => {
+    res.type('text/plain')
+    const headers = Object.entries(req.headers).map(([key, value]) => `${key}: ${value}`)
+    res.send(headers.join('\n'))
+})
 
 // 定制 404 页面
 app.use(handlers.notFound)
@@ -99,6 +125,9 @@ app.use(handlers.serverError)
 //     console.error('** SERVER ERROR: ' + err.message)
 //     res.status(500).render('08-error', { message: "you shouldn't have clicked that!" })
 // })
+
+// 当应用接收到任何未匹配到其他路由的 GET 请求时（使用通配符 *）。
+app.get('*', (req, res) => res.render('home'))
 
 
 /* ==== ==== 启动服务器 ==== ==== */
