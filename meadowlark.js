@@ -30,11 +30,12 @@ const expressSession = require('express-session')     // npm install express-ses
 /* ==== ==== Redis ==== ==== */
 // 上面 Sessions 部分省略如下注释语句
 // const expressSession = require('express-session') 
-// app.use(cookieParser(credentials.cookieSecret))
-const RedisStore = require('connect-redis').default;
-const { createClient } = require('redis');
-const redisClient = createClient({ url: credentials.redisUri });
-redisClient.connect().catch(console.error);
+const RedisStore = require('connect-redis').default
+const { createClient } = require('redis')
+const redisClient = createClient({ url: credentials.redisUri })
+// 启动 Redis 客户端
+redisClient.connect().catch(console.error)
+// 配置 Express Session 中间件
 app.use(expressSession({
     resave: false,
     saveUninitialized: false,
@@ -43,32 +44,6 @@ app.use(expressSession({
         client: redisClient,
     }),
 }));
-/*const client = createClient({
-    password: '83c3g8TVrvSQjz8y75AnrBa4HbmYPSYP',
-    socket: {
-        host: 'redis-14890.c323.us-east-1-2.ec2.cloud.redislabs.com',
-        port: 14890
-    }
-});
-const client = createClient({
-    url: credentials.redisUri,
-});
-client.on('error', err => console.log('Redis Client Error', err));
-await client.connect();
-// 屏蔽 Sessions 部分下面类似代码
-app.use(expressSession({
-    // 如果会话数据没有被修改，就不会重新保存到存储。这有助于防止无谓的存储操作。
-    resave: false,
-    // 如果会话没有被修改过，就不会保存。
-    saveUninitialized: false,
-    // 用于签署和验证会话ID的cookie。
-    secret: credentials.cookieSecret,
-    // connect-redis提供的RedisStore，该存储将会话数据存储在Redis数据库中。
-    //store: new RedisStore({
-    //    url: credentials.redisUri,
-    //}),
-    store: session_store,
-}))*/
 
 
 /* ==== ==== Flash Message ==== ==== */
