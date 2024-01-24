@@ -7,6 +7,9 @@ const app = express()
 // 也可以使用 app.set('x-powered-by', false) 达到相同的效果。
 app.disable('x-powered-by')
 app.use(express.static(__dirname + '/public'))
+// 确保req.ip、req.protocol和req.secure反映了客户端与代理之间的连接细节，而不是客户端与应用程序之间的连接。
+// 此外，req.ips将是一个数组，指示原始客户端IP以及任何中间代理的名称或IP地址。
+app.enable('trust proxy')
 
 
 /* ==== ==== Cookies ==== ==== */
@@ -21,7 +24,51 @@ const expressSession = require('express-session')     // npm install express-ses
 // resave：如果设置为 true，它会强制将会话保存回会话存储，即使在请求期间未修改会话。false：如果在请求期间未修改会话，则不保存会话。
 // saveUninitialized：如果设置为 true，它会强制将未初始化的会话保存到存储。false：不保存未初始化的会话，节省存储空间。
 // secret：这是一个用于签名会话 ID cookie 的字符串。
-app.use(expressSession({ resave: false, saveUninitialized: false, secret: credentials.cookieSecret }))
+// app.use(expressSession({ resave: false, saveUninitialized: false, secret: credentials.cookieSecret }))
+
+
+/* ==== ==== Redis ==== ==== */
+// 上面 Sessions 部分省略如下注释语句
+// const expressSession = require('express-session') 
+// app.use(cookieParser(credentials.cookieSecret))
+const RedisStore = require('connect-redis').default;
+const { createClient } = require('redis');
+const redisClient = createClient({ url: credentials.redisUri });
+redisClient.connect().catch(console.error);
+app.use(expressSession({
+    resave: false,
+    saveUninitialized: false,
+    secret: credentials.cookieSecret,
+    store: new RedisStore({
+        client: redisClient,
+    }),
+}));
+/*const client = createClient({
+    password: '83c3g8TVrvSQjz8y75AnrBa4HbmYPSYP',
+    socket: {
+        host: 'redis-14890.c323.us-east-1-2.ec2.cloud.redislabs.com',
+        port: 14890
+    }
+});
+const client = createClient({
+    url: credentials.redisUri,
+});
+client.on('error', err => console.log('Redis Client Error', err));
+await client.connect();
+// 屏蔽 Sessions 部分下面类似代码
+app.use(expressSession({
+    // 如果会话数据没有被修改，就不会重新保存到存储。这有助于防止无谓的存储操作。
+    resave: false,
+    // 如果会话没有被修改过，就不会保存。
+    saveUninitialized: false,
+    // 用于签署和验证会话ID的cookie。
+    secret: credentials.cookieSecret,
+    // connect-redis提供的RedisStore，该存储将会话数据存储在Redis数据库中。
+    //store: new RedisStore({
+    //    url: credentials.redisUri,
+    //}),
+    store: session_store,
+}))*/
 
 
 /* ==== ==== Flash Message ==== ==== */
@@ -102,8 +149,77 @@ app.post('/api/vacation-photo-contest/:year/:month', (req, res) => {
 })
 
 
+/* ==== ==== Middleware ==== ==== */
+const products = [
+    { id: 'hPc8YUbFuZM9edw4DaxwHk', name: 'Rock Climbing Expedition in Bend', price: 239.95, requiresWaiver: true },
+    { id: 'eyryDtCCu9UUcqe9XgjbRk', name: 'Walking Tour of Portland', price: 89.95 },
+    { id: '6oC1Akf6EbcxWZXHQYNFwx', name: 'Manzanita Surf Expedition', price: 159.95, maxGuests: 4 },
+    { id: 'w6wTWMx39zcBiTdpM9w5J7', name: 'Wine Tasting in the Willamette Valley', price: 229.95 },
+  ]
+// 使用Array.reduce方法，将一个包含产品信息的数组(products)转换成一个以产品ID为键的对象(productsById)。
+//  reduce 接受一个回调函数和一个初始值 {}。byId 是累积的结果，初始值是一个空对象 {}。p 是当前数组元素，即产品对象。
+// Object.assign() 方法用于将所有可枚举属性的值从一个或多个源对象复制到目标对象。在这里，目标对象是 byId，而源对象是 { [p.id]: p }，它包含一个以当前产品ID为键、产品对象为值的新对象。这个操作相当于将当前产品对象添加到 byId 对象中，以产品ID作为键。
+// reduce 方法在数组的每个元素上都执行这个回调函数，最终返回累积的结果，这个结果就是一个以产品ID为键的对象，每个键对应一个产品对象。
+const productsById = products.reduce((byId, p) => Object.assign(byId, { [p.id]: p }), {})
+const cartValidation = require('./lib/cartValidation')
+app.use(cartValidation.resetValidation)
+app.use(cartValidation.checkWaivers)
+app.use(cartValidation.checkGuestCounts)
+app.get('/', (req, res) => {
+    const cart = req.session.cart || { items: [] }
+    const context = { products, cart }
+    res.render('home', context)
+})
+app.post('/add-to-cart', (req, res) => {
+    if(!req.session.cart) req.session.cart = { items: [] }
+    const { cart } = req.session
+    Object.keys(req.body).forEach(key => {
+        if(!key.startsWith('guests-')) return
+        const productId = key.split('-')[1]
+        const product = productsById[productId]
+        const guests = Number(req.body[key])
+        if(guests === 0) return // no guests to add
+        if(!cart.items.some(item => item.product.id === productId)) cart.items.push({ product, guests: 0 })
+        const idx = cart.items.findIndex(item => item.product.id === productId)
+        const item = cart.items[idx]
+        item.guests += guests
+        if(item.guests < 0) item.guests = 0
+        if(item.guests === 0) cart.items.splice(idx, 1)
+    })
+    res.redirect('/')
+})
+
+
+/* ==== ==== Log ==== ==== */
+const morgan = require('morgan')    //  npm install morgan
+const fs = require('fs')
+
+// export NODE_ENV=production
+switch(app.get('env')) {
+    case 'development':
+        app.use(morgan('dev'))
+        break
+    case 'production':
+        const stream = fs.createWriteStream(__dirname + '/access.log', { flags: 'a' })
+        app.use(morgan('combined', { stream }))
+        break
+}
+
+
+/* ==== ==== DB ==== ==== */
+require('./mongodb/db')
+// require('./postgres/db')
+app.get('/vacations', handlers.listVacations)
+app.get('/notify-me-when-in-season', handlers.notifyWhenInSeasonForm)
+app.post('/notify-me-when-in-season', handlers.notifyWhenInSeasonProcess)
+// :currency 是一个路由参数。它表示一个占位符，可以匹配在 URL 中的任何值。
+// 在这个上下文中，:currency 用于捕获用户在 URL 中提供的货币代码。
+// 路由处理程序可以通过 req.params.currency 来访问这个捕获的值，从而获取用户选择的货币。
+app.get('/set-currency/:currency', handlers.setCurrency)
+
+
 /* ==== ==== 路由 ==== ==== */
-app.get('/', handlers.home)
+app.get('/weather', (req, res) => res.render('weather'))
 app.get('/about', handlers.about)
 app.get('/section-test', handlers.sectionTest)
 app.get('/headers', (req, res) => {
@@ -135,8 +251,16 @@ const port = process.env.PORT || 3000
 
 if(require.main === module) {
     app.listen(port, () => {
-        console.log( `Express started on http://localhost:${port}; press Ctrl-C to terminate.` )
+        console.log( `Express started in ` +
+        `${app.get('env')} mode at http://localhost:${port}` +
+        `; press Ctrl-C to terminate.` )
     })
 } else {
     module.exports = app
 }
+
+// 另一个是 PM2
+// npm install -g forever
+// forever start meadowlark.js
+// forever restart meadowlark.js
+// forever stop meadowlark.js.
